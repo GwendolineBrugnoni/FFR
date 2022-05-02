@@ -1,0 +1,6 @@
+cffi==1.15.0
+cryptography==37.0.1
+hermes-alvarios==0.3.0
+numpy==1.22.3
+opencv-python==4.5.5.64
+pycparser==2.21
