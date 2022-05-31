@@ -2,34 +2,25 @@
 This script get the flux from the camera and send it to given ip and port.
 The consumer of this script can be the script video_stream_consumer.py
 """
-
+from hermes.camera.CV2AsynchronousVideoCapture import CV2AsynchronousVideoCapture
 from hermes.stream.VideoStream import VideoStream
 import cv2
 
+consumer_ip = "127.0.0.1"
+consumer_port = 5000
+encoding_param = {"params": [int(cv2.IMWRITE_JPEG_QUALITY), 50]}
+
 if __name__ == "__main__":
-    emitter_ip = input("Ip address of emitter : \n")
-    emitter_port = input("Port of emitter : \n")
-    consumer_ip = input("Ip address of consumer : \n")
-    consumer_port = input("Port of consumer : \n")
-    emitter_address_port = (emitter_ip, int(emitter_port))
-    consumer_address_port = (consumer_ip, int(consumer_port))
-    emitter = VideoStream(role=VideoStream.EMITTER, socket_ip=emitter_address_port[0],
-                          socket_port=emitter_address_port[1]).start()
+    recorder = CV2AsynchronousVideoCapture().start()
+    emitter = VideoStream(role=VideoStream.EMITTER,socket_ip="0.0.0.0",encoding_param=encoding_param).start()
+    emitter.add_subscriber((consumer_ip, consumer_port))
+    while recorder.read_frame() is None:
+        pass
     while emitter.get_is_running() is False:
         pass
-    emitter.add_subscriber(consumer_address_port)
-
-    vc = cv2.VideoCapture(0)
-
-    if vc.isOpened():
-        rval, frame = vc.read()
-    else:
-        rval = False
-
-    last_frame = frame
-
-    while rval:
-        rval, frame = vc.read()
+    print("start")
+    for _ in range(1000):
+        frame = recorder.read_frame()
         emitter.refresh_image(frame)
-
-    emitter.time_stop()
+    recorder.stop()
+    emitter.stop()
