@@ -8,7 +8,7 @@ import imutils
 import sys
 
 # %% Algo de traitement d'image thermique
-img2 = mpimg.imread('C:\\Users\\gwenb\\OneDrive\\Images\\photo-de-groupe-0320.jpg')
+img2 = mpimg.imread('C:\\Users\\gwenb\\OneDrive\\Images\\FLIR0066.jpg')
 
 img = copy.deepcopy(img2)
 img_largeur = img.shape[0]
@@ -16,13 +16,14 @@ img_hauteur = img.shape[1]
 
 for i in range(img_largeur):
     for j in range(img_hauteur):
-        if (img[i][j][0] > 150):
+        if (img[i][j][0] > 150 or img[i][j][1] > 150):
             img[i][j][0], img[i][j][1], img[i][j][2] = 0, 0, 0
 # %% Algo Reconnaissance Faciale
-imagePath = r'C:\\Users\\gwenb\\OneDrive\\Images\\photo-de-groupe-0320.jpg'
+imagePath = r'C:\\Users\\gwenb\\OneDrive\\Images\\Test_Visages_Bis.jpg'
 cascadefile = "haarcascade_frontalface_alt.xml"
 classCascade = cv2.CascadeClassifier(cascadefile)
 image = cv2.imread(imagePath)
+cv2.imwrite("visages.jpg",image)
 # Echelle de gris
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 # Reconnaissance faciale
@@ -30,7 +31,8 @@ faces = classCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, min
                                       flags=cv2.CASCADE_SCALE_IMAGE)
 # Dessine des rectangles autour des visages trouvés
 for (x, y, w, h) in faces:
-    cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+
 # %% Algo Reconnaissance de Personne
 # Initializing the HOG person
 hog = cv2.HOGDescriptor()
@@ -68,13 +70,19 @@ while (rep == True):
         plt.figure()
         imgplot1 = plt.imshow(img)
         plt.show()
+        #plt.savefig('playmobil.png')
     if (n == 2):
         print("Il y a {0} visage(s).".format(len(faces)))
         plt.imshow(gray)
+        plt.show()
         plt.imshow(image)
+        plt.show()
+        cv2.imwrite("visages.jpg", image)
     if (n == 3):
         print('Human Detected : ', len(humans))
-        cv2.imshow("Image", image1)
+        print("yo")
+        plt.imshow(image1)
+        plt.show()
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     if (n == 4):
