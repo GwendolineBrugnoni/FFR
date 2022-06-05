@@ -1,16 +1,30 @@
-"""Example of video streaming consumer.
-This script receive the video stream of a VideoStream emitter and will display it in a new window.
-The emitter of this script can be the script video_stream_emitter.py
-Press ESC to quit the example while running.
-"""
-
+import socket
 from hermes.stream.VideoStream import VideoStream
 import cv2
-import imutils
 import datetime
+from hermes.network.AsyncUDPChannel import AsyncUDPChannel
 
-consumer_ip = "127.0.0.1"
-consumer_port = 5000
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+consumer_ip = get_ip()
+print(consumer_ip)
+consumer_video_port = "5001"
+
+server_port = 8000
+server_ip = "192.168.50.1"
+
+max_time_between_pings = 5
 
 def reconnaissance_faciale(image):
     cascadefile = "haarcascade_frontalface_alt.xml"
@@ -24,46 +38,58 @@ def reconnaissance_faciale(image):
     for (x, y, w, h) in faces:
         cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-def reconnaissance_forme(image1):
-
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
-    # Reading the Image
-
-    # Resizing the Image
-    image1 = imutils.resize(image1,
-                            width=min(500, image1.shape[1]))
-
     # Detecting all humans
-    (humans, _) = hog.detectMultiScale(image1,
+    (humans, _) = hog.detectMultiScale(image,
                                        winStride=(5, 5),
                                        padding=(3, 3),
                                        scale=1.21)
-
     # Drawing the rectangle regions
     for (x, y, w, h) in humans:
-        cv2.rectangle(image1, (x, y),
+        cv2.rectangle(image, (x, y),
                       (x + w, y + h),
                       (0, 0, 255), 2)
-    return image1
+    return image
 if __name__ == "__main__":
+    client = AsyncUDPChannel(socket_ip=consumer_ip,
+                             socket_port=5000).start()
     cv2.namedWindow("preview")
-    consumer = VideoStream(role=VideoStream.CONSUMER, socket_ip=consumer_ip,
-                           socket_port=consumer_port).start()
+    consumer = VideoStream(role=VideoStream.CONSUMER,
+                           socket_ip=consumer_ip,
+                           socket_port=int(consumer_video_port),
+                           use_rcv_img_buffer=False,
+                           max_queue_size=10000).start()
 
     while consumer.get_is_running() is False:
         pass
+
+    # Connection to server
+    print("Connection request")
+    client.sendto(bytes(consumer_video_port, 'utf8'), (server_ip, server_port))
+    last_ping = datetime.datetime.now()
+
     while True:
+        # Ping server
+        if (
+                datetime.datetime.now() - last_ping).seconds > max_time_between_pings:
+            print("Refresh connection")
+            client.sendto(bytes(consumer_video_port, 'utf8'),
+                          (server_ip, server_port))
+            last_ping = datetime.datetime.now()
+
         new_frame = consumer.get_rcv_img()
+
         if new_frame is not None:
-            #traitement ici
-            image1 = reconnaissance_forme(new_frame)
-            reconnaissance_faciale(image1)
-            cv2.imshow("preview", image1)
+            # traitement ici
+            cv2.imshow("preview", reconnaissance_faciale(new_frame))
+            cv2.imshow("preview", new_frame)
 
         key = cv2.waitKey(20)
         if key == 27:  # exit on ESC
             break
+
     cv2.destroyWindow("preview")
     consumer.stop()
+    client.stop()
